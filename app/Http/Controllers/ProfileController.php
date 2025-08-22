@@ -3,9 +3,7 @@ namespace App\Http\Controllers;
 
 use App\Models\Profile;
 use App\Models\ProfileLink;
-use Carbon\Carbon;
 use Illuminate\Http\Request;
-use Illuminate\Support\Facades\Storage;
 use Illuminate\Support\Str;
 
 class ProfileController extends Controller
@@ -21,7 +19,7 @@ class ProfileController extends Controller
 
         $request->validate([
             'business_name'           => 'required|string|max:255',
-            'business_description' =>    'required|string',
+            'business_description'    => 'required|string',
             'date_of_establishment'   => 'required|date',
             'country'                 => 'required|string|max:255',
             'business_location'       => 'required|string|max:255',
@@ -33,21 +31,54 @@ class ProfileController extends Controller
             'signature'               => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
             'profile_image'           => 'required|image|mimes:jpeg,png,jpg,gif|max:2048',
             'whatsapp_link'           => 'required|url',
-         
+
         ]);
 
         $data = $request->except(['business_logo', 'signature', 'profile_image']);
 
         if ($request->hasFile('business_logo')) {
-            $data['business_logo'] = $request->file('business_logo')->store('logos', 'public');
+            $file      = $request->file('business_logo');
+            $subfolder = 'logos';
+            $uploadDir = public_path("uploads/{$subfolder}");
+
+            if (! file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true); // recursive creation
+            }
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move($uploadDir, $filename);
+
+            $data['business_logo'] = "{$subfolder}/{$filename}";
         }
 
         if ($request->hasFile('signature')) {
-            $data['signature'] = $request->file('signature')->store('signatures', 'public');
+            $file      = $request->file('signature');
+            $subfolder = 'signatures';
+            $uploadDir = public_path("uploads/{$subfolder}");
+
+            if (! file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move($uploadDir, $filename);
+
+            $data['signature'] = "{$subfolder}/{$filename}";
         }
 
         if ($request->hasFile('profile_image')) {
-            $data['profile_image'] = $request->file('profile_image')->store('profile_images', 'public');
+            $file      = $request->file('profile_image');
+            $subfolder = 'profile_images';
+            $uploadDir = public_path("uploads/{$subfolder}");
+
+            if (! file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move($uploadDir, $filename);
+
+            $data['profile_image'] = "{$subfolder}/{$filename}";
         }
 
         $data['user_id']       = $request->user()->id;
@@ -101,8 +132,8 @@ class ProfileController extends Controller
                 'country'                 => $profile->country,
                 'contact_number_whatsapp' => $profile->contact_number_whatsapp,
                 'whatsapp_link'           => $profile->whatsapp_link,
-                
-                'user'                   => [
+
+                'user'                    => [
                     'firstname'          => $user->firstname,
                     'lastname'           => $user->lastname,
                     'email'              => $user->email,
@@ -228,24 +259,61 @@ class ProfileController extends Controller
         $data = $request->except(['business_logo', 'signature', 'profile_image']);
 
         if ($request->hasFile('business_logo')) {
-            if ($profile->business_logo) {
-                Storage::disk('public')->delete($profile->business_logo);
+            $file      = $request->file('business_logo');
+            $subfolder = 'logos';
+            $uploadDir = public_path("uploads/{$subfolder}");
+
+            if (! file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
             }
-            $data['business_logo'] = $request->file('business_logo')->store('logos', 'public');
+
+            // Delete old file if exists
+            if ($profile->business_logo && file_exists(public_path("uploads/{$profile->business_logo}"))) {
+                unlink(public_path("uploads/{$profile->business_logo}"));
+            }
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move($uploadDir, $filename);
+
+            $data['business_logo'] = "{$subfolder}/{$filename}";
         }
 
         if ($request->hasFile('signature')) {
-            if ($profile->signature) {
-                Storage::disk('public')->delete($profile->signature);
+            $file      = $request->file('signature');
+            $subfolder = 'signatures';
+            $uploadDir = public_path("uploads/{$subfolder}");
+
+            if (! file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
             }
-            $data['signature'] = $request->file('signature')->store('signatures', 'public');
+
+            if ($profile->signature && file_exists(public_path("uploads/{$profile->signature}"))) {
+                unlink(public_path("uploads/{$profile->signature}"));
+            }
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move($uploadDir, $filename);
+
+            $data['signature'] = "{$subfolder}/{$filename}";
         }
 
         if ($request->hasFile('profile_image')) {
-            if ($profile->profile_image) {
-                Storage::disk('public')->delete($profile->profile_image);
+            $file      = $request->file('profile_image');
+            $subfolder = 'profile_images';
+            $uploadDir = public_path("uploads/{$subfolder}");
+
+            if (! file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
             }
-            $data['profile_image'] = $request->file('profile_image')->store('profile_images', 'public');
+
+            if ($profile->profile_image && file_exists(public_path("uploads/{$profile->profile_image}"))) {
+                unlink(public_path("uploads/{$profile->profile_image}"));
+            }
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move($uploadDir, $filename);
+
+            $data['profile_image'] = "{$subfolder}/{$filename}";
         }
 
         if ($request->has('whatsapp_link')) {

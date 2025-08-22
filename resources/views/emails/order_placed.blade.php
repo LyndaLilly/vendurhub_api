@@ -5,7 +5,7 @@
     <title>New Order Notification</title>
 </head>
 <body>
-    <h2>Hello {{ $order->product->user->name ?? 'Vendor' }},</h2>
+    <h2>Hello {{ $order->product->user->fullname ?? 'Vendor' }},</h2>
 
     <p>You have received a new order for your product:</p>
 

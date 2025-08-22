@@ -7,7 +7,6 @@ use App\Models\Trial;
 use Carbon\Carbon;
 use Illuminate\Http\Request;
 use Illuminate\Support\Str;
-use Illuminate\Support\Facades\Log;
 
 class ProductController extends Controller
 {
@@ -67,17 +66,26 @@ class ProductController extends Controller
             'product_number' => $this->generateProductNumber(),
         ]);
 
+
         // 5. Upload and save images
         if ($request->hasFile('images')) {
             foreach ($request->file('images') as $image) {
-                $path = $image->store('products', 'public');
+                $filename  = time() . '_' . uniqid() . '.' . $image->getClientOriginalExtension();
+                $subfolder = 'products';
+                $uploadDir = public_path("uploads/{$subfolder}");
 
-                Log::info('Uploaded image stored at: ' . storage_path('app/public/' . $path));
-                Log::info('Accessible URL: ' . url('storage/' . $path));
+                // Ensure directory exists
+                if (! file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true); // recursive = true
+                }
 
+                // Move file
+                $image->move($uploadDir, $filename);
+
+                // Save record
                 ProductImage::create([
                     'product_id' => $product->id,
-                    'image_path' => $path,
+                    'image_path' => "{$subfolder}/{$filename}",
                 ]);
             }
         }
@@ -112,17 +120,28 @@ class ProductController extends Controller
             $imageIdsToDelete = json_decode($request->input('images_to_delete'), true);
             if (is_array($imageIdsToDelete)) {
                 ProductImage::whereIn('id', $imageIdsToDelete)->where('product_id', $product->id)->delete();
-                // optionally delete files from storage
             }
         }
 
         // Handle new image uploads
         if ($request->hasFile('new_images')) {
             foreach ($request->file('new_images') as $file) {
-                $path = $file->store('product_images', 'public');
+
+                $filename  = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $subfolder = 'products';
+                $uploadDir = public_path("uploads/{$subfolder}");
+
+                  if (! file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true); // recursive = true
+                }
+
+                    // Move file
+                $file->move($uploadDir, $filename);
+
+                // Save record
                 ProductImage::create([
                     'product_id' => $product->id,
-                    'image_path' => $path,
+                    'image_path' => "{$subfolder}/{$filename}",
                 ]);
             }
         }

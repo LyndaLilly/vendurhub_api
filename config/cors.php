@@ -2,13 +2,22 @@
 
 return [
 
-    'paths' => ['api/*', 'sanctum/csrf-cookie'],
+    'paths' => ['api/*', 'sanctum/csrf-cookie', '/uploads'],
 
     'allowed_methods' => ['*'],
 
-    'allowed_origins' => [],
+   'allowed_origins' => [
+    'https://vendurhub.com',
+    'https://www.vendurhub.com',
+    'https://api.vendurhub.com',
+    'https://www.api.vendurhub.com',
+],
 
-    'allowed_origins_patterns' => ['/^http:\/\/localhost:\d+$/'],
+    // Allow localhost with any port
+    'allowed_origins_patterns' => [
+        '/^http:\/\/localhost(:[0-9]+)?$/',
+        '/^http:\/\/127\.0\.0\.1(:[0-9]+)?$/',
+    ],
 
     'allowed_headers' => ['*'],
 
@@ -16,6 +25,6 @@ return [
 
     'max_age' => 0,
 
-    'supports_credentials' => true,
+    'supports_credentials' => false,
 
 ];

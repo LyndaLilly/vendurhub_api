@@ -18,15 +18,9 @@ class OrderPlacedMail extends Mailable
     {
         $this->order = $order;
 
-        // Convert image_choice filename to URL
-        $this->selectedImageUrl = $order->image_choice && $order->image_choice !== 'null'
-        ? asset('storage/product_images/' . $order->image_choice)
-        : null;
-
-        // Convert payment proof filename to URL
-        $this->paymentProofUrl = $order->payment_proof
-        ? asset('storage/payment_proofs/' . $order->payment_proof)
-        : null;
+        // URLs are already full
+        $this->selectedImageUrl = $order->image_choice ?: null;
+        $this->paymentProofUrl  = $order->payment_proof ?: null;
     }
 
     public function build()

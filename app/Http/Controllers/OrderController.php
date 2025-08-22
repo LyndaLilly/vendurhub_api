@@ -11,6 +11,8 @@ use Illuminate\Support\Facades\Mail;
 
 class OrderController extends Controller
 {
+    const UPLOAD_BASE_URL = 'https://api.vendurhub.com/public/uploads/';
+
     public function store(Request $request, $productId)
     {
         $request->validate([
@@ -24,37 +26,44 @@ class OrderController extends Controller
             'city'          => 'required|string',
             'quantity'      => 'required|integer|min:1',
             'payment_type'  => 'required|in:pay_now,pay_on_delivery',
-            'image_choice'  => 'nullable|string', // accept string choice
+            'image_choice'  => 'nullable|string',
             'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,pdf|max:2048',
         ]);
 
-        \Log::info('store() called', [
-            'image_choice'     => $request->input('image_choice'),
-            'all_request_data' => $request->all(),
-        ]);
-
-        \Log::info('Order image_choice from request:', ['image_choice' => $request->image_choice]);
-
         $product = Product::with(['user', 'images'])->findOrFail($productId);
 
-        $locationId = $request->delivery_location_id;
-
         $location = DeliveryLocation::where('user_id', $product->user_id)
-            ->where('id', $locationId)
+            ->where('id', $request->delivery_location_id)
             ->firstOrFail();
 
-        $quantity      = (int) $request->quantity;
-        $productPrice  = $product->price;
-        $deliveryPrice = $location->delivery_price;
-
+        $quantity          = (int) $request->quantity;
+        $productPrice      = $product->price;
+        $deliveryPrice     = $location->delivery_price;
         $totalProductPrice = $productPrice * $quantity;
         $totalPrice        = $totalProductPrice + $deliveryPrice;
 
-        $paymentProofPath = null;
+        // Handle payment proof upload
+        $paymentProofUrl = null;
         if ($request->hasFile('payment_proof')) {
-            $file             = $request->file('payment_proof');
-            $filename         = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-            $paymentProofPath = $file->storeAs('payment_proofs', $filename, 'public');
+            $file      = $request->file('payment_proof');
+            $subfolder = 'payment_proofs';
+            $uploadDir = public_path("uploads/{$subfolder}");
+
+            if (! file_exists($uploadDir)) {
+                mkdir($uploadDir, 0777, true);
+            }
+
+            $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+            $file->move($uploadDir, $filename);
+
+            $paymentProofUrl = self::UPLOAD_BASE_URL . "{$subfolder}/{$filename}";
+        }
+
+        // Resolve chosen product image
+        $chosenImageUrl = null;
+        if ($request->image_choice && isset($product->images[intval($request->image_choice) - 1])) {
+            $imagePath      = $product->images[intval($request->image_choice) - 1]->image_path;
+            $chosenImageUrl = self::UPLOAD_BASE_URL . $imagePath;
         }
 
         $order = Order::create([
@@ -73,8 +82,8 @@ class OrderController extends Controller
             'product_price'  => $productPrice,
             'total_price'    => $totalPrice,
             'payment_type'   => $request->payment_type,
-            'payment_proof'  => $paymentProofPath,
-            'image_choice'   => $request->image_choice,
+            'payment_proof'  => $paymentProofUrl,
+            'image_choice'   => $chosenImageUrl,
             'status'         => 'pending',
             'product_id'     => $product->id,
             'vendor_id'      => $product->user_id,
@@ -89,15 +98,6 @@ class OrderController extends Controller
         }
 
         $vendorProfile = $product->user->profile;
-
-        // Resolve image choice path safely
-        $chosenImage = null;
-        if ($request->image_choice && in_array($request->image_choice, ['1', '2', '3'])) {
-            $index = intval($request->image_choice) - 1;
-            if (isset($product->images[$index])) {
-                $chosenImage = asset('storage/' . $product->images[$index]->image_path);
-            }
-        }
 
         return response()->json([
             'message'      => 'Order placed successfully!',
@@ -114,7 +114,7 @@ class OrderController extends Controller
                     'name'         => $product->name,
                     'price'        => $product->price,
                     'quantity'     => $order->quantity,
-                    'image_choice' => $chosenImage,
+                    'image_choice' => $chosenImageUrl,
                 ],
                 'delivery'    => [
                     'location' => $location,
@@ -123,7 +123,7 @@ class OrderController extends Controller
                 'payment'     => [
                     'type'      => $order->payment_type,
                     'status'    => $order->status,
-                    'proof_url' => $paymentProofPath ? asset('storage/' . $paymentProofPath) : null,
+                    'proof_url' => $paymentProofUrl,
                 ],
                 'total_price' => $totalPrice,
                 'vendor'      => [
@@ -138,67 +138,52 @@ class OrderController extends Controller
 
     public function myOrders(Request $request)
     {
-        try {
-            $user = auth()->user();
+        $user = auth()->user();
 
-            $orders = Order::with(['product.images'])
-                ->where('vendor_id', $user->id)
-                ->latest()
-                ->get()
-                ->map(function ($order) {
-                    $imageChoice = null;
+        $orders = Order::with(['product.images'])
+            ->where('vendor_id', $user->id)
+            ->latest()
+            ->get()
+            ->map(function ($order) {
+                // Resolve chosen image URL
+                $imageChoice = $order->image_choice ?? null;
 
-                    if (
-                        $order->product &&
-                        $order->product->images->count() > 0 &&
-                        $order->image_choice &&
-                        in_array($order->image_choice, ['1', '2', '3'])
-                    ) {
-                        $index = intval($order->image_choice) - 1;
-                        if ($order->product->images->has($index)) {
-                            $imageChoice = asset('storage/' . $order->product->images[$index]->image_path);
-                        }
-                    }
+                // Resolve all product images URLs
+                $productImages = $order->product
+                ? $order->product->images->map(fn($img) => OrderController::UPLOAD_BASE_URL . $img->image_path)
+                : [];
 
-                    return [
-                        'id'               => $order->id,
-                        'product'          => $order->product ? [
-                            'id'     => $order->product->id,
-                            'name'   => $order->product->name,
-                            'price'  => $order->product->price,
-                            'images' => $order->product->images->map(fn($img) => asset('storage/' . $img->image_path)),
-                        ] : null,
-                        'buyer_name'       => $order->fullname,
-                        'buyer_email'      => $order->email,
-                        'buyer_phone'      => $order->mobile_number,
-                        'delivery_address' => $order->address,
-                        'quantity'         => $order->quantity,
-                        'status'           => $order->status,
-                        'payment_status'   => $order->payment_status ?? null,
-                        'payment_proof'    => $order->payment_proof ? asset('storage/' . $order->payment_proof) : null,
-                        'image_choice'     => $imageChoice,
-                        'total_price'      => $order->total_price, // <-- Add this
-                        'created_at'       => $order->created_at,
-                    ];
+                // Resolve payment proof URL
+                $paymentProofUrl = $order->payment_proof ?? null;
 
-                });
+                return [
+                    'id'               => $order->id,
+                    'product'          => $order->product ? [
+                        'id'     => $order->product->id,
+                        'name'   => $order->product->name,
+                        'price'  => $order->product->price,
+                        'images' => $productImages,
+                    ] : null,
+                    'buyer_name'       => $order->fullname,
+                    'buyer_email'      => $order->email,
+                    'buyer_phone'      => $order->mobile_number,
+                    'delivery_address' => $order->address,
+                    'quantity'         => $order->quantity,
+                    'status'           => $order->status,
+                    'payment_status'   => $order->payment_status ?? null,
+                    'payment_proof'    => $paymentProofUrl,
+                    'image_choice'     => $imageChoice,
+                    'total_price'      => $order->total_price,
+                    'created_at'       => $order->created_at,
+                ];
+            });
 
-            return response()->json([
-                'orders' => $orders,
-            ]);
-        } catch (\Throwable $e) {
-            \Log::error('Error in myOrders(): ' . $e->getMessage());
-            return response()->json([
-                'message' => 'Server error while fetching orders.',
-            ], 500);
-        }
+        return response()->json(['orders' => $orders]);
     }
 
     public function updateStatus(Request $request, $orderId)
     {
-        $request->validate([
-            'status' => 'required|in:approved,rejected',
-        ]);
+        $request->validate(['status' => 'required|in:approved,rejected']);
 
         $order         = Order::with(['product.images', 'vendor.profile'])->findOrFail($orderId);
         $order->status = $request->status;
@@ -212,10 +197,35 @@ class OrderController extends Controller
             $emailMessage = 'Status updated, but failed to send email: ' . $e->getMessage();
         }
 
+        $imageChoice     = $order->image_choice ?? null;
+        $paymentProofUrl = $order->payment_proof ?? null;
+        $productImages   = $order->product->images->map(fn($img) => OrderController::UPLOAD_BASE_URL . $img->image_path);
+
         return response()->json([
             'message'      => 'Order status updated.',
             'email_status' => $emailMessage,
-            'order'        => $order,
+            'order'        => [
+                'id'             => $order->id,
+                'product'        => [
+                    'id'     => $order->product->id,
+                    'name'   => $order->product->name,
+                    'price'  => $order->product_price,
+                    'images' => $productImages,
+                ],
+                'buyer_name'     => $order->fullname,
+                'buyer_email'    => $order->email,
+                'buyer_phone'    => $order->mobile_number,
+                'buyer_whatsapp' => $order->whatsapp,
+                'buyer_address'  => $order->address,
+                'quantity'       => $order->quantity,
+                'status'         => $order->status,
+                'payment_type'   => $order->payment_type,
+                'payment_status' => $order->payment_status ?? null,
+                'payment_proof'  => $paymentProofUrl,
+                'image_choice'   => $imageChoice,
+                'total_price'    => $order->total_price,
+                'created_at'     => $order->created_at,
+            ],
         ]);
     }
 
@@ -232,31 +242,31 @@ class OrderController extends Controller
             return response()->json(['message' => 'Order not found'], 404);
         }
 
-        $imageChoice = $order->image_choice ? asset('storage/' . $order->image_choice) : null;
+        $imageChoice     = $order->image_choice ?? null;
+        $paymentProofUrl = $order->payment_proof ?? null;
+        $productImages   = $order->product->images->map(fn($img) => OrderController::UPLOAD_BASE_URL . $img->image_path);
 
         return response()->json([
             'order' => [
                 'id'             => $order->id,
                 'product'        => [
-                    'id'    => $order->product->id,
-                    'name'  => $order->product->name,
-                    'price' => $order->product_price,
+                    'id'     => $order->product->id,
+                    'name'   => $order->product->name,
+                    'price'  => $order->product_price,
+                    'images' => $productImages,
                 ],
                 'buyer_name'     => $order->fullname,
                 'buyer_email'    => $order->email,
                 'buyer_phone'    => $order->mobile_number,
                 'buyer_whatsapp' => $order->whatsapp,
                 'buyer_address'  => $order->address,
-                'country'        => $order->country,
-                'state'          => $order->state,
-                'city'           => $order->city,
                 'quantity'       => $order->quantity,
                 'status'         => $order->status,
                 'payment_type'   => $order->payment_type,
                 'product_price'  => $order->product_price,
                 'delivery_price' => $order->delivery_price,
                 'total_price'    => $order->total_price,
-                'payment_proof'  => $order->payment_proof ? asset('storage/' . $order->payment_proof) : null,
+                'payment_proof'  => $paymentProofUrl,
                 'image_choice'   => $imageChoice,
                 'created_at'     => $order->created_at,
             ],
