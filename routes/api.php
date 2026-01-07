@@ -149,3 +149,16 @@ Route::middleware('auth:sanctum')->post('/trial/start', [TrialController::class,
 Route::middleware('auth:sanctum')->get('/trial/status', [TrialController::class, 'status']);
 
 Route::get('/promotions/expire', [TrialController::class, 'checkExpiredTrials']);
+
+
+Route::get('/test-mail', function () {
+    try {
+        Mail::raw('Test email from VendUrHub', function ($message) {
+            $message->to('support@vendurhub.com')
+                    ->subject('Test Mail');
+        });
+        return 'Mail sent!';
+    } catch (\Exception $e) {
+        return 'Mail failed: ' . $e->getMessage();
+    }
+});
