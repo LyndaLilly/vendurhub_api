@@ -1,38 +1,28 @@
 <?php
-
 namespace App\Http\Controllers;
 
 use App\Models\Trial;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Http;
+use Illuminate\Support\Facades\Log;
 
 class TrialController extends Controller
 {
     const TRIAL_DAYS = 30;
-
-    /**
-     * Start a new trial
-     */
+    
     public function start(Request $request)
     {
         $user = $request->user();
+        
+        $this->checkExpiredTrials();
 
-        // Already subscribed? No trial needed
-        if ($user->hasActiveSubscription()) {
-            return response()->json([
-                'message' => 'You already have an active subscription.',
-            ], 400);
-        }
-
-        // Check if trial exists
         if ($user->trial) {
-            // If trial exists but expired, allow starting a new one
-            if (!$user->trial->active) {
-                $user->trial->delete(); // Remove old expired trial
-            } else {
-                return response()->json([
-                    'message' => 'Trial already started.',
-                ], 400);
-            }
+            return response()->json([
+                'message'       => 'You have already used your free trial.',
+                'trial_active'  => $user->trial->active,
+                'trial_ends_at' => $user->trial->ended_at,
+                'expired_at'    => $user->trial->expired_at,
+            ], 400);
         }
 
         // Create new trial
@@ -50,14 +40,15 @@ class TrialController extends Controller
         ]);
     }
 
-    /**
-     * Check trial status
-     */
+   
     public function status(Request $request)
     {
         $user = $request->user();
-        $trial = $user->trial;
 
+        // Expire any overdue trials
+        $this->checkExpiredTrials();
+
+        $trial         = $user->trial;
         $trial_active  = false;
         $trial_ends_at = null;
 
@@ -67,8 +58,9 @@ class TrialController extends Controller
             if ($trial->active && now()->lessThanOrEqualTo($trial_ends_at)) {
                 $trial_active = true;
             } elseif ($trial->active && now()->greaterThan($trial_ends_at)) {
-                // Expire trial automatically
-                $trial->active = 0;
+                // Expire this user's trial
+                $trial->active     = 0;
+                $trial->expired_at = now();
                 $trial->save();
             }
         }
@@ -77,6 +69,21 @@ class TrialController extends Controller
             'has_active_subscription' => $user->hasActiveSubscription(),
             'trial_active'            => $trial_active,
             'trial_ends_at'           => $trial_ends_at,
+            'expired_at'              => $trial?->expired_at,
+        ]);
+    }
+
+    protected function checkExpiredTrials()
+    {
+        $expired = Trial::where('active', true)
+            ->where('ended_at', '<', now())
+            ->update([
+                'active'     => false,
+                'expired_at' => now(),
+            ]);
+
+        return response()->json([
+            'message' => "{$expired} trials expired successfully.",
         ]);
     }
 }

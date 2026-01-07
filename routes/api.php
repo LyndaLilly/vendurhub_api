@@ -148,3 +148,4 @@ Route::middleware('auth:sanctum')->group(function () {
 Route::middleware('auth:sanctum')->post('/trial/start', [TrialController::class,'start']);
 Route::middleware('auth:sanctum')->get('/trial/status', [TrialController::class, 'status']);
 
+Route::get('/promotions/expire', [TrialController::class, 'checkExpiredTrials']);
