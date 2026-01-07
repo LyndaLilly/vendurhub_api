@@ -38,7 +38,7 @@ class SubscriptionController extends Controller
         $subscription->update([
             'is_active'  => true,
             'starts_at'  => Carbon::now(),
-            // 'expired_at' => Carbon::now()->addMonth(), // or plan-based logic
+            'expired_at' => Carbon::now()->addMonth(), // or plan-based logic
         ]);
 
         return response()->json(['message' => 'Subscription reactivated successfully.']);

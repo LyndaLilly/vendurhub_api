@@ -25,7 +25,8 @@ Schedule::call(function () {
     $expired = Subscription::where('is_active', true)
         ->where('ended_at', '<', now())
         ->update([
-            'is_active' => false,
+            'is_active'  => false,
+            'expired_at' => now(),
         ]);
 
     Log::info("🧹 Expired {$expired} subscriptions at " . now());
