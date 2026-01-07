@@ -15,7 +15,7 @@ return new class extends Migration
             $table->boolean('is_active')->default(true); // active or expired
             $table->timestamp('starts_at')->nullable();
             $table->timestamp('ended_at')->nullable();
-            $table->timestamp('expired_at')->nullable();
+            $table->timestamp('expires_at')->nullable();
             $table->timestamps();
         });
     }
