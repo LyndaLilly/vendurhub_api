@@ -1,18 +1,24 @@
 <?php
 
 use App\Http\Controllers\Auth\UserAuthController;
+use App\Http\Controllers\FeedbackController;
+use App\Http\Controllers\HomeStatsController;
+use App\Http\Controllers\NewsletterController;
 use App\Http\Controllers\DeliveryLocationController;
 use App\Http\Controllers\OrderController;
+use App\Http\Controllers\ContactController;
 use App\Http\Controllers\PaystackController;
 use App\Http\Controllers\ProductCategoryController;
 use App\Http\Controllers\ProductController;
 use App\Http\Controllers\ProfileController;
 use App\Http\Controllers\ReceiptController;
+use App\Http\Controllers\TrialController;
 use App\Http\Controllers\UserController;
 use App\Mail\SubscriptionExpiryReminderMail;
 use App\Models\User;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+
 
 Route::post('/vendor/register', [UserAuthController::class, 'register']);
 
@@ -48,9 +54,12 @@ Route::middleware('auth:sanctum')->group(function () {
 
 Route::get('/vendor/receipts', [ReceiptController::class, 'index'])->middleware('auth:sanctum');
 
-Route::get('/product/{link}', [ProductController::class, 'showByLink']);
+Route::get('/share/product/{link}', [ProductController::class, 'showByLink']);
+
+Route::get('/product/{slug}', [ProductController::class, 'sharePage']);
 
 Route::get('/categories', [ProductCategoryController::class, 'index']);
+Route::get('/categories/{id}/products', [ProductCategoryController::class, 'getProducts']);
 
 Route::middleware('auth:sanctum')->group(function () {
 
@@ -62,7 +71,7 @@ Route::middleware('auth:sanctum')->group(function () {
 });
 
 Route::middleware('auth:sanctum')->get('/vendor/products', [ProductController::class, 'myProducts']);
-Route::get('/shared-profile/{uuid}', [ProfileController::class, 'showSharedProfile']);
+Route::get('/shared-profile/{slug}', [ProfileController::class, 'showSharedProfile']);
 Route::get('/products/search', [ProductController::class, 'search']);
 Route::get('/vendors/search', [UserController::class, 'searchVendors']);
 
@@ -73,6 +82,8 @@ Route::get('/vendor/{vendorId}/delivery-locations', [DeliveryLocationController:
 
 Route::post('/orders/{productId}', [OrderController::class, 'store']);
 
+Route::get('/vendors/top', [UserController::class, 'topVendors']);
+Route::get('/recent-vendors', [UserController::class, 'recentVendors']);
 Route::get('/vendors', [UserController::class, 'index']);
 Route::get('/vendors/{id}', [UserController::class, 'show']);
 
@@ -114,3 +125,26 @@ Route::get('/test-reminder-mail', function () {
 });
 
 Route::middleware('auth:sanctum')->post('/vendor/change-password', [UserAuthController::class, 'changePassword']);
+
+Route::post('/contact', [ContactController::class, 'store']);
+Route::get('/contacts', [ContactController::class, 'index']);
+
+
+Route::get('/feedbacks', [FeedbackController::class, 'index']);
+Route::post('/feedback', [FeedbackController::class, 'store']);
+
+
+Route::delete('/feedback/{id}', [FeedbackController::class, 'destroy']);
+
+Route::get('/stats/home', [HomeStatsController::class, 'index']);
+
+Route::post('/newsletter', [NewsletterController::class, 'store']);
+
+Route::middleware('auth:sanctum')->group(function () {
+    Route::get('/newsletter', [NewsletterController::class, 'index']);   
+    Route::delete('/newsletter/{id}', [NewsletterController::class, 'destroy']);
+});
+
+Route::middleware('auth:sanctum')->post('/trial/start', [TrialController::class,'start']);
+Route::middleware('auth:sanctum')->get('/trial/status', [TrialController::class, 'status']);
+

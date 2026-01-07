@@ -1,9 +1,8 @@
 <?php
-
 namespace App\Models;
 
-use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\Factories\HasFactory;
+use Illuminate\Database\Eloquent\Model;
 
 class Order extends Model
 {
@@ -28,6 +27,8 @@ class Order extends Model
         'payment_proof',
         'image_choice',
         'status',
+        'rejection_reason',
+        'approval_note',
         'product_id',
         'vendor_id',
     ];
@@ -36,7 +37,7 @@ class Order extends Model
 
     public function getPaymentProofUrlAttribute()
     {
-        return $this->payment_proof 
+        return $this->payment_proof
             ? asset('storage/' . $this->payment_proof)
             : null;
     }

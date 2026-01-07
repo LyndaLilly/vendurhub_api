@@ -1,11 +1,14 @@
 <?php
+
 namespace App\Http\Controllers;
 
 use App\Models\User;
+use App\Models\Subscription;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
-use Illuminate\Support\Facades\Mail;  // Correct Mail import
+use Illuminate\Support\Facades\Mail;
 use App\Mail\SubscriptionSuccessfulMail;
+use Carbon\Carbon;
 
 class PaystackController extends Controller
 {
@@ -13,12 +16,12 @@ class PaystackController extends Controller
     {
         $user = $request->user();
 
-        $plan = $request->input('plan', 'monthly');
+        $plan = $request->input('plan', 'monthly'); // must be 'monthly' or 'yearly'
         if (! in_array($plan, ['monthly', 'yearly'])) {
             return response()->json(['message' => 'Invalid subscription plan'], 422);
         }
 
-        $amount = $plan === 'monthly' ? 3000 * 100 : 30000 * 100;
+        $amount = $plan === 'monthly' ? 5000 * 100 : 30000 * 100; // in kobo
 
         $callback_url = route('paystack.callback');
 
@@ -56,16 +59,21 @@ class PaystackController extends Controller
             $user = User::find($userId);
 
             if ($user) {
-                $expiresAt = $plan === 'monthly' ? now()->addMonth() : now()->addYear();
+                $startsAt  = Carbon::now();
+                $expiresAt = $plan === 'monthly'
+                    ? $startsAt->copy()->addMonth()
+                    : $startsAt->copy()->addYear();
 
-                $user->update([
-                    'is_subscribed'           => true,
-                    'subscription_type'       => $plan,
-                    'subscription_expires_at' => $expiresAt,
+                Subscription::create([
+                    'user_id'    => $user->id,
+                    'plan'       => $plan,
+                    'is_active'  => true,
+                    'starts_at'  => $startsAt,
+                    'expires_at' => $expiresAt,
                 ]);
 
-                // Send subscription confirmation email
-                Mail::to($user->email)->send(new SubscriptionSuccessfulMail($user, $plan, $expiresAt));
+                Mail::to($user->email)
+                    ->send(new SubscriptionSuccessfulMail($user, $plan, $expiresAt));
 
                 return redirect(env('FRONTEND_URL') . '/vendor/subscription?status=success');
             }
@@ -78,14 +86,37 @@ class PaystackController extends Controller
     {
         $user = $request->user();
 
+        $subscription = Subscription::where('user_id', $user->id)
+            ->where('is_active', 1)
+            ->latest()
+            ->first();
+
+        $hasActiveSubscription = $subscription ? true : false;
+
+        // Trial check
+        $trial = \App\Models\Trial::where('user_id', $user->id)->first();
+        $trialActive = false;
+        $trialEndsAt = null;
+
+        if ($trial) {
+            $trialEndsAt = $trial->started_at->copy()->addDays(30);
+            $trialActive = now()->lessThan($trialEndsAt);
+        }
+
+        // Plans (match frontend exactly)
+        $plans = [
+            ['type' => 'monthly', 'price' => 5000, 'duration_days' => 30],
+            ['type' => 'yearly', 'price' => 30000, 'duration_days' => 365],
+        ];
+
         return response()->json([
-            'is_subscribed'           => $user->is_subscribed,
-            'subscription_type'       => $user->subscription_type,
-            'subscription_expires_at' => $user->subscription_expires_at,
-            'plans'                   => [
-                ['type' => 'monthly', 'price' => 3000, 'duration_days' => 30],
-                ['type' => 'yearly', 'price' => 30000, 'duration_days' => 365],
-            ],
+            'has_active_subscription' => $hasActiveSubscription,
+            'subscription_type' => $subscription?->plan,
+            'subscription_expires_at' => $subscription?->expires_at,
+            'trial_active' => $trialActive,
+            'trial_started_at' => $trial?->started_at,
+            'trial_ends_at' => $trialEndsAt,
+            'plans' => $plans,
         ]);
     }
 }

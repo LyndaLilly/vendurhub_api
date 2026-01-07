@@ -11,14 +11,16 @@ return new class extends Migration
      */
     public function up(): void
     {
-      Schema::create('receipts', function (Blueprint $table) {
-    $table->id();
-    $table->foreignId('vendor_id')->constrained('users')->onDelete('cascade');
-    $table->string('buyer_fullname');
-    $table->enum('payment_status', ['full', 'half'])->default('full');
-    $table->enum('delivery_status', ['pending', 'in_progress', 'completed'])->default('pending');
-    $table->timestamps();
-});
+        Schema::create('receipts', function (Blueprint $table) {
+            $table->id();
+            $table->foreignId('vendor_id')->constrained('users')->onDelete('cascade');
+            $table->string('buyer_fullname');
+            $table->enum('payment_status', ['full', 'half'])->default('full');
+            $table->enum('delivery_status', ['pending', 'in_progress', 'completed'])->default('pending');
+            $table->decimal('amount_paid', 15, 2)->default(0);
+            $table->decimal('balance', 15, 2)->default(0);
+            $table->timestamps();
+        });
 
     }
 

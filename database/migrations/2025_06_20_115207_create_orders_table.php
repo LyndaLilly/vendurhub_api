@@ -21,11 +21,10 @@ class CreateOrdersTable extends Migration
             $table->string('email');
             $table->text('address');
             $table->string('mobile_number')->nullable();
+            $table->string('delivery_state')->nullable();
+            $table->string('delivery_city')->nullable();
+ 
 
-            // Delivery info
-            $table->string('country');
-            $table->string('state');
-            $table->string('city');
 
             // Prices
             $table->decimal('delivery_price', 10, 2);
@@ -35,6 +34,8 @@ class CreateOrdersTable extends Migration
             // Payment and status
             $table->enum('payment_type', ['pay_now', 'pay_on_delivery']);
             $table->enum('status', ['pending', 'approved', 'rejected'])->default('pending');
+            $table->text("rejection_reason")->nullable();
+            $table->text("approval_note")->nullable();
 
             $table->timestamps();
 

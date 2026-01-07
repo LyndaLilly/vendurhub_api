@@ -8,10 +8,21 @@ use App\Models\Order;
 use App\Models\Product;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
+use Illuminate\Support\Facades\Log;
+
 
 class OrderController extends Controller
 {
     const UPLOAD_BASE_URL = 'https://api.vendurhub.com/public/uploads/';
+
+    private function assetUrl(?string $path): ?string
+    {
+        if (! $path) {
+            return null;
+        }
+
+        return self::UPLOAD_BASE_URL . ltrim($path, '/');
+    }
 
     public function store(Request $request, $productId)
     {
@@ -20,25 +31,26 @@ class OrderController extends Controller
             'whatsapp'      => 'required|string|max:20',
             'email'         => 'required|email',
             'address'       => 'required|string',
-            'mobile_number' => 'required|string',
-            'country'       => 'required|string',
-            'state'         => 'required|string',
-            'city'          => 'required|string',
             'quantity'      => 'required|integer|min:1',
             'payment_type'  => 'required|in:pay_now,pay_on_delivery',
             'image_choice'  => 'nullable|string',
-            'payment_proof' => 'nullable|image|mimes:jpeg,png,jpg,gif,svg,pdf|max:2048',
+            'payment_proof' => $request->payment_type === 'pay_now'
+                ? 'required|image|mimes:jpeg,png,jpg,gif,svg,pdf|max:2048'
+                : 'nullable|image|mimes:jpeg,png,jpg,gif,svg,pdf|max:2048',
         ]);
 
         $product = Product::with(['user', 'images'])->findOrFail($productId);
 
-        $location = DeliveryLocation::where('user_id', $product->user_id)
-            ->where('id', $request->delivery_location_id)
-            ->firstOrFail();
+        $location = null;
+        if ($request->filled('delivery_location_id')) {
+            $location = DeliveryLocation::where('user_id', $product->user_id)
+                ->where('id', $request->delivery_location_id)
+                ->first();
+        }
+        $deliveryPrice = $location ? $location->delivery_price : 0;
 
         $quantity          = (int) $request->quantity;
         $productPrice      = $product->price;
-        $deliveryPrice     = $location->delivery_price;
         $totalProductPrice = $productPrice * $quantity;
         $totalPrice        = $totalProductPrice + $deliveryPrice;
 
@@ -71,14 +83,10 @@ class OrderController extends Controller
             'whatsapp'       => $request->whatsapp,
             'email'          => $request->email,
             'address'        => $request->address,
-            'mobile_number'  => $request->mobile_number,
-            'country'        => $request->country,
-            'state'          => $request->state,
-            'city'           => $request->city,
             'quantity'       => $quantity,
             'delivery_price' => $deliveryPrice,
-            'delivery_state' => $location->state,
-            'delivery_city'  => $location->city,
+            'delivery_state' => $location->state ?? null,
+            'delivery_city'  => $location->city ?? null,
             'product_price'  => $productPrice,
             'total_price'    => $totalPrice,
             'payment_type'   => $request->payment_type,
@@ -104,11 +112,10 @@ class OrderController extends Controller
             'email_status' => $emailMessage,
             'receipt'      => [
                 'buyer'       => [
-                    'fullname'      => $order->fullname,
-                    'email'         => $order->email,
-                    'mobile_number' => $order->mobile_number,
-                    'whatsapp'      => $order->whatsapp,
-                    'address'       => $order->address,
+                    'fullname' => $order->fullname,
+                    'email'    => $order->email,
+                    'whatsapp' => $order->whatsapp,
+                    'address'  => $order->address,
                 ],
                 'product'     => [
                     'name'         => $product->name,
@@ -131,7 +138,10 @@ class OrderController extends Controller
                     'account_name'   => $vendorProfile->business_account_name ?? '',
                     'account_number' => $vendorProfile->business_account_number ?? '',
                     'bank_name'      => $vendorProfile->business_bank_name ?? '',
+                    'logo'           => $this->assetUrl($vendorProfile->business_logo),
+                    'signature'      => $this->assetUrl($vendorProfile->business_signature),
                 ],
+
             ],
         ]);
     }
@@ -150,8 +160,8 @@ class OrderController extends Controller
 
                 // Resolve all product images URLs
                 $productImages = $order->product
-                ? $order->product->images->map(fn($img) => OrderController::UPLOAD_BASE_URL . $img->image_path)
-                : [];
+                    ? $order->product->images->map(fn($img) => OrderController::UPLOAD_BASE_URL . $img->image_path)
+                    : [];
 
                 // Resolve payment proof URL
                 $paymentProofUrl = $order->payment_proof ?? null;
@@ -166,7 +176,7 @@ class OrderController extends Controller
                     ] : null,
                     'buyer_name'       => $order->fullname,
                     'buyer_email'      => $order->email,
-                    'buyer_phone'      => $order->mobile_number,
+                    'buyer_phone'      => $order->whatsapp,
                     'delivery_address' => $order->address,
                     'quantity'         => $order->quantity,
                     'status'           => $order->status,
@@ -183,48 +193,72 @@ class OrderController extends Controller
 
     public function updateStatus(Request $request, $orderId)
     {
-        $request->validate(['status' => 'required|in:approved,rejected']);
+        $request->validate([
+            'status'           => 'required|in:approved,rejected',
+            'rejection_reason' => 'required_if:status,rejected|string|max:1000',
+            'approval_note'    => 'nullable|string|max:1000',
+        ]);
 
-        $order         = Order::with(['product.images', 'vendor.profile'])->findOrFail($orderId);
+        $order = Order::with(['product.images', 'vendor.profile'])
+            ->findOrFail($orderId);
+
         $order->status = $request->status;
+
+        if ($request->status === 'rejected') {
+            $order->rejection_reason = $request->rejection_reason;
+            $order->approval_note    = null;
+        } else {
+            $order->approval_note    = $request->approval_note;
+            $order->rejection_reason = null;
+        }
+
         $order->save();
 
         $emailMessage = 'Email sent to buyer successfully.';
         try {
             $attachReceipt = ($order->status === 'approved');
-            Mail::to($order->email)->send(new OrderStatusUpdatedMail($order, $attachReceipt));
+            Mail::to($order->email)->send(
+                new OrderStatusUpdatedMail($order, $attachReceipt)
+            );
+                // Optional success log
+    Log::info('Order status email sent', [
+        'order_id' => $order->id,
+        'email'    => $order->email,
+        'status'   => $order->status,
+    ]);
+
         } catch (\Exception $e) {
+               Log::error('Order status email failed', [
+        'order_id' => $order->id,
+        'email'    => $order->email,
+        'status'   => $order->status,
+        'error'    => $e->getMessage(),
+        'trace'    => $e->getTraceAsString(),
+    ]);
             $emailMessage = 'Status updated, but failed to send email: ' . $e->getMessage();
         }
+        
 
-        $imageChoice     = $order->image_choice ?? null;
-        $paymentProofUrl = $order->payment_proof ?? null;
-        $productImages   = $order->product->images->map(fn($img) => OrderController::UPLOAD_BASE_URL . $img->image_path);
+        $productImages = $order->product->images->map(
+            fn($img) => self::UPLOAD_BASE_URL . $img->image_path
+        );
 
         return response()->json([
             'message'      => 'Order status updated.',
             'email_status' => $emailMessage,
             'order'        => [
-                'id'             => $order->id,
-                'product'        => [
+                'id'               => $order->id,
+                'status'           => $order->status,
+                'approval_note'    => $order->approval_note,
+                'rejection_reason' => $order->rejection_reason,
+                'total_price'      => $order->total_price,
+                'created_at'       => $order->created_at,
+                'product'          => [
                     'id'     => $order->product->id,
                     'name'   => $order->product->name,
                     'price'  => $order->product_price,
                     'images' => $productImages,
                 ],
-                'buyer_name'     => $order->fullname,
-                'buyer_email'    => $order->email,
-                'buyer_phone'    => $order->mobile_number,
-                'buyer_whatsapp' => $order->whatsapp,
-                'buyer_address'  => $order->address,
-                'quantity'       => $order->quantity,
-                'status'         => $order->status,
-                'payment_type'   => $order->payment_type,
-                'payment_status' => $order->payment_status ?? null,
-                'payment_proof'  => $paymentProofUrl,
-                'image_choice'   => $imageChoice,
-                'total_price'    => $order->total_price,
-                'created_at'     => $order->created_at,
             ],
         ]);
     }
@@ -257,9 +291,10 @@ class OrderController extends Controller
                 ],
                 'buyer_name'     => $order->fullname,
                 'buyer_email'    => $order->email,
-                'buyer_phone'    => $order->mobile_number,
                 'buyer_whatsapp' => $order->whatsapp,
                 'buyer_address'  => $order->address,
+                'delivery_state' => $order->delivery_state,
+                'delivery_city'  => $order->delivery_city,
                 'quantity'       => $order->quantity,
                 'status'         => $order->status,
                 'payment_type'   => $order->payment_type,

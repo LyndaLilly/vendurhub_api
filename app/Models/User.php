@@ -21,7 +21,7 @@ class User extends Authenticatable
         'subscription_type',
         'subscription_expires_at',
         'deactivated_at',
-         'last_password_change',
+        'last_password_change',
     ];
 
     protected $hidden = ['password', 'remember_token'];
@@ -59,6 +59,24 @@ class User extends Authenticatable
     public function isActive()
     {
         return is_null($this->deactivated_at);
+    }
+
+    public function orders()
+    {
+        return $this->hasMany(\App\Models\Order::class, 'vendor_id');
+    }
+
+    public function subscriptions()
+    {
+        return $this->hasMany(\App\Models\Subscription::class);
+    }
+
+    public function hasActiveSubscription(): bool
+    {
+        return $this->subscriptions()
+            ->where('is_active', true)
+            ->where('expires_at', '>', now())
+            ->exists();
     }
 
 }

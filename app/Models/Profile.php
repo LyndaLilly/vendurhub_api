@@ -9,22 +9,25 @@ class Profile extends Model
     use HasFactory;
 
     protected $fillable = [
-        'user_id',
-        'profile_image',
-        'business_name',
-        'business_description',
-        'business_logo',
-        'date_of_establishment',
-        'country',
-        'business_location',
-        'contact_number_whatsapp',
-        'whatsapp_link',
-        'business_account_number',
-        'busines_account_name',
-        'business_bank_name',
-        'signature',
-        'last_editable_update',
-    ];
+    'user_id',
+    'profile_image',
+    'business_name',
+    'business_description',
+    'business_logo',
+    'date_of_establishment',
+    'country',
+    'state',
+    'city',
+    'business_location',
+    'contact_number_whatsapp',
+    'whatsapp_link',
+    'business_account_number',
+    'business_account_name',
+    'business_bank_name',
+    'signature',
+    'last_editable_update',
+];
+
 
     public function shareableLink()
     {

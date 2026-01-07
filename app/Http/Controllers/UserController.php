@@ -1,8 +1,10 @@
 <?php
 namespace App\Http\Controllers;
-
 use App\Models\User;
+use App\Models\Product;
 use Illuminate\Http\Request;
+use Illuminate\Support\Facades\Log;
+
 
 class UserController extends Controller
 {
@@ -72,5 +74,97 @@ class UserController extends Controller
             ], 500);
         }
     }
+
+public function topVendors()
+{
+    try {
+        Log::info('🚀 topVendors() called');
+
+        // Step 1: Fetch vendors who have at least 1 order AND at least 1 product
+        $topVendors = User::with('profile')
+            ->withCount(['orders', 'products'])
+            ->having('orders_count', '>', 0)
+            ->having('products_count', '>', 0)
+            ->orderByDesc('orders_count')     // sort by orders first
+            ->orderByDesc('products_count')   // then by products count
+            ->take(3)                         // top 3 vendors
+            ->get();
+
+        Log::info('✅ Top vendors fetched', ['count' => $topVendors->count()]);
+
+        // Step 2: Attach latest products for each vendor
+        foreach ($topVendors as $vendor) {
+            $latestProducts = Product::with('images')
+                ->where('user_id', $vendor->id)
+                ->latest()
+                ->take(5)
+                ->get();
+
+            $vendor->setRelation('latest_products', $latestProducts);
+
+            Log::info('🛒 Latest products fetched', [
+                'vendor_id' => $vendor->id,
+                'count' => $latestProducts->count()
+            ]);
+        }
+
+        // Step 3: Return response
+        Log::info('✅ Returning top vendor data.');
+        return response()->json([
+            'message' => 'Top vendors with latest products retrieved successfully',
+            'vendors' => $topVendors,
+        ]);
+
+    } catch (\Throwable $e) {
+        Log::error('❌ Error in topVendors()', [
+            'error' => $e->getMessage(),
+            'file'  => $e->getFile(),
+            'line'  => $e->getLine(),
+            'trace' => $e->getTraceAsString(),
+        ]);
+
+        return response()->json([
+            'message' => 'An unexpected error occurred in topVendors().',
+            'error' => $e->getMessage(),
+        ], 500);
+    }
+}
+
+
+public function recentVendors()
+{
+    try {
+        Log::info('🚀 recentVendors() called');
+
+        // Fetch 6 most recently registered users with completed profiles
+        $recentVendors = User::with('profile')
+            ->whereHas('profile', function ($query) {
+                $query->where('profile_updated', 1);
+            })
+            ->orderByDesc('created_at')
+            ->take(6)
+            ->get(); // 👈 remove column restriction here
+
+        Log::info('✅ Recent vendors fetched', ['count' => $recentVendors->count()]);
+
+        return response()->json([
+            'message' => '6 most recently registered vendors retrieved successfully',
+            'vendors' => $recentVendors,
+        ]);
+
+    } catch (\Throwable $e) {
+        Log::error('❌ Error in recentVendors()', [
+            'error' => $e->getMessage(),
+            'file'  => $e->getFile(),
+            'line'  => $e->getLine(),
+        ]);
+
+        return response()->json([
+            'message' => 'An unexpected error occurred while fetching recent vendors.',
+            'error'   => $e->getMessage(),
+        ], 500);
+    }
+}
+
 
 }

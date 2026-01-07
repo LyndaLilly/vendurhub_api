@@ -62,7 +62,8 @@ class ProductController extends Controller
             'description'    => $request->description,
             'price'          => $request->price,
             'category_id'    => $request->category_id,
-            'shareable_link' => Str::uuid(),
+            'shareable_link' => Str::uuid(), 
+            'slug'           => Str::slug($request->name) . '-' . Str::random(6),
             'product_number' => $this->generateProductNumber(),
         ]);
 
@@ -93,7 +94,8 @@ class ProductController extends Controller
         return response()->json([
             'message'        => 'Product created successfully!',
             'product'        => $product->load('images', 'user.deliveryLocations'),
-            'shareable_link' => url('/product/' . $product->shareable_link),
+            'shareable_link' => url('/product/' . $product->slug),
+            // 'shareable_link' => url('/product/' . $product->shareable_link),
         ]);
     }
 
@@ -153,13 +155,27 @@ class ProductController extends Controller
     }
 
     public function showByLink($link)
+    
     {
-        $product = Product::where('shareable_link', $link)
-            ->with(['images', 'category', 'user.deliveryLocations'])
+        $product = Product::where('slug', $link)
+            ->with(['images', 'category', 'user.deliveryLocations', 'user.profile'])
             ->firstOrFail();
 
         return response()->json($product);
     }
+    
+   public function sharePage($slug)
+{
+    $product = Product::where('slug', $slug)
+        ->with(['images', 'user.profile'])
+        ->firstOrFail();
+
+    return view('product-share', [
+        'product' => $product,
+    ]);
+}
+
+
 
     public function myProducts(Request $request)
     {
