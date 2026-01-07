@@ -21,3 +21,14 @@ Schedule::call(function () {
     Log::info("🧹 Expired {$expired} trials at " . now());
 })->everyMinute();
 
+
+Schedule::call(function () {
+    $expired = Trial::where('active', true)
+        ->where('ended_at', '<', now())
+        ->update([
+            'active'  => false,
+            'expired_at' => now(),
+        ]);
+
+    Log::info("🧹 Expired {$expired} trials at " . now());
+})->everyMinute();
