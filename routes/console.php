@@ -11,14 +11,14 @@ Artisan::command('inspire', function () {
 
 use Illuminate\Support\Facades\Schedule;
 
-// Schedule::call(function () {
-//     $expired = Trial::where('active', true)
-//         ->where('ended_at', '<', now())
-//         ->update([
-//             'active'  => false,
-//             'expired_at' => now(),
-//         ]);
-// })->everyMinute();
+Schedule::call(function () {
+    $expired = Trial::where('active', true)
+        ->where('ended_at', '<', now())
+        ->update([
+            'active'  => false,
+            'expired_at' => now(),
+        ]);
+})->everyMinute();
 
 
 Schedule::call(function () {
