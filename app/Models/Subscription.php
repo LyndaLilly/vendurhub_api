@@ -15,14 +15,14 @@ class Subscription extends Model
         'is_active',
         'starts_at',
         'ended_at',
-        'expires_at',
+        'expired_at',
     ];
 
     protected $casts = [
         'is_active'  => 'boolean',
         'starts_at'  => 'datetime',
         'ended_at'   => 'datetime',
-        'expires_at' => 'datetime',
+        'expired_at' => 'datetime',
     ];
 
     // Relation to the User

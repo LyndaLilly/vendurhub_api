@@ -70,7 +70,7 @@ class PaystackController extends Controller
                     'is_active'  => true,
                     'starts_at'  => $startsAt,
                     'ended_at'   => $expiresAt,
-                    'expires_at' => $expiresAt,
+                    'expired_at' => $expiresAt,
                 ]);
 
                 Mail::to($user->email)
@@ -113,7 +113,7 @@ class PaystackController extends Controller
         return response()->json([
             'has_active_subscription' => $hasActiveSubscription,
             'subscription_type' => $subscription?->plan,
-            'subscription_expires_at' => $subscription?->expires_at,
+            'subscription_expired_at' => $subscription?->expired_at,
             'trial_active' => $trialActive,
             'trial_started_at' => $trial?->started_at,
             'trial_ends_at' => $trialEndsAt,
