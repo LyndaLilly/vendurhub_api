@@ -70,7 +70,7 @@ class PaystackController extends Controller
                     'is_active'  => true,
                     'starts_at'  => $startsAt,
                     'ended_at'   => $expiresAt,
-                    'expires_at' => $expiresAt,
+                    'expires_at' => null,
                 ]);
 
                 Mail::to($user->email)
