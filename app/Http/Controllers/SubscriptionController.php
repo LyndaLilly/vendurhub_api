@@ -23,7 +23,7 @@ class SubscriptionController extends Controller
                                     ->where('user_id', $request->user()->id)
                                     ->firstOrFail();
 
-        $subscription->update(['is_active' => false, 'expires_at' => Carbon::now()]);
+        $subscription->update(['is_active' => false, 'expired_at' => Carbon::now()]);
 
         return response()->json(['message' => 'Subscription canceled successfully.']);
     }
@@ -38,7 +38,7 @@ class SubscriptionController extends Controller
         $subscription->update([
             'is_active'  => true,
             'starts_at'  => Carbon::now(),
-            'expires_at' => Carbon::now()->addMonth(), // or plan-based logic
+            'expired_at' => Carbon::now()->addMonth(), // or plan-based logic
         ]);
 
         return response()->json(['message' => 'Subscription reactivated successfully.']);
