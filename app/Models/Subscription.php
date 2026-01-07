@@ -14,12 +14,14 @@ class Subscription extends Model
         'plan',
         'is_active',
         'starts_at',
+        'ended_at',
         'expires_at',
     ];
 
     protected $casts = [
         'is_active'  => 'boolean',
         'starts_at'  => 'datetime',
+        'ended_at'   => 'datetime',
         'expires_at' => 'datetime',
     ];
 

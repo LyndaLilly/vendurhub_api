@@ -69,6 +69,7 @@ class PaystackController extends Controller
                     'plan'       => $plan,
                     'is_active'  => true,
                     'starts_at'  => $startsAt,
+                    'ended_at'   => $expiresAt,
                     'expires_at' => $expiresAt,
                 ]);
 

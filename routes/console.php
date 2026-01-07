@@ -3,6 +3,7 @@
 use Illuminate\Foundation\Inspiring;
 use Illuminate\Support\Facades\Artisan;
 use App\Models\Trial;
+use App\Models\Subscription;
 
 Artisan::command('inspire', function () {
     $this->comment(Inspiring::quote());
@@ -17,18 +18,16 @@ Schedule::call(function () {
             'active'  => false,
             'expired_at' => now(),
         ]);
-
-    Log::info("🧹 Expired {$expired} trials at " . now());
 })->everyMinute();
 
 
 Schedule::call(function () {
-    $expired = Trial::where('active', true)
+    $expired = Subscription::where('is_active', true)
         ->where('ended_at', '<', now())
         ->update([
-            'active'  => false,
+            'is_active'  => false,
             'expired_at' => now(),
         ]);
 
-    Log::info("🧹 Expired {$expired} trials at " . now());
+    Log::info("🧹 Expired {$expired} subscriptions at " . now());
 })->everyMinute();
