@@ -4,6 +4,7 @@ namespace App\Http\Controllers\Auth;
 use App\Http\Controllers\Controller;
 use App\Mail\PasswordChangedNotification;
 use App\Mail\PasswordResetCodeMail;
+use App\Mail\ResendPasswordResetCodeMail;
 use App\Models\User;
 use App\Models\Verification;
 use Carbon\Carbon;
@@ -240,9 +241,7 @@ class UserAuthController extends Controller
         }
 
         try {
-            Mail::send('emails.reset-code', ['user' => $user, 'code' => $code], function ($message) use ($user) {
-                $message->to($user->email)->subject('Resend: Password Reset Code');
-            });
+             Mail::to($user->email)->send(new ResendPasswordResetCodeMail($user, $code));
         } catch (\Exception $e) {
             \Log::error('Password reset resend mail failed', [
                 'email' => $user->email,

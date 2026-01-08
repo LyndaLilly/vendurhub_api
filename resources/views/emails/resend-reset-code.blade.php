@@ -4,35 +4,10 @@
 <meta charset="UTF-8">
 <title>Password Reset</title>
 <style>
-    :root {
-        --primary: #024da0;
-        --primary-hover: #4ea0fd;
-        --hover: #cde4fe;
-        --primary-active: #0044cc;
-        --primary-light: rgba(0,68,204,0.2);
-        --secondary: #ff1744;
-        --secondary-hover: #e60039;
-        --secondary-active: #b3002d;
-        --accent: #FF9900;
-        --accent-hover: #ffd54f;
-        --accent-active: #ffb300;
-        --background: #ffffff;
-        --section-bg: #f0f5ff;
-        --section-alt: #fafafa;
-        --border: #e0e0e0;
-        --text: #0d0d0d;
-        --text-muted: #555555;
-        --success: #00e676;
-        --error: #ff3d00;
-        --white: #ffffff;
-        --gray: #999999;
-        --bg2: #d5d9d9;
-    }
-
     body {
         font-family: Arial, sans-serif;
-        background-color: var(--section-bg);
-        color: var(--text);
+        background-color: #f0f5ff;
+        color: #0d0d0d;
         margin: 0;
         padding: 0;
     }
@@ -40,16 +15,16 @@
     .email-container {
         max-width: 600px;
         margin: 40px auto;
-        background-color: var(--background);
-        border: 1px solid var(--border);
+        background-color: #ffffff;
+        border: 1px solid #e0e0e0;
         border-radius: 8px;
         overflow: hidden;
         box-shadow: 0 4px 10px rgba(0,0,0,0.05);
     }
 
     .email-header {
-        background-color: var(--primary);
-        color: var(--white);
+        background-color: #024da0;
+        color: #ffffff;
         padding: 20px;
         text-align: center;
     }
@@ -73,8 +48,8 @@
     .code-box {
         font-size: 32px;
         font-weight: bold;
-        color: var(--secondary);
-        background-color: var(--hover);
+        color: #ff1744;
+        background-color: #cde4fe;
         padding: 15px 25px;
         margin: 20px 0;
         border-radius: 8px;
@@ -83,8 +58,8 @@
     }
 
     .footer {
-        background-color: var(--section-alt);
-        color: var(--text-muted);
+        background-color: #fafafa;
+        color: #555555;
         text-align: center;
         font-size: 14px;
         padding: 15px 20px;
