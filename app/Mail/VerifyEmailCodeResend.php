@@ -22,6 +22,6 @@ class VerifyEmailCodeResend extends Mailable
     public function build()
     {
         return $this->subject('Email Resend Verification Code')
-                    ->view('emails.verify-email-resend');
+                    ->view('emails.verify-code-resend');
     }
 }
