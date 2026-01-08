@@ -3,6 +3,7 @@ namespace App\Http\Controllers\Auth;
 
 use App\Http\Controllers\Controller;
 use App\Mail\PasswordChangedNotification;
+use App\Mail\PasswordResetCodeMail;
 use App\Models\User;
 use App\Models\Verification;
 use Carbon\Carbon;
@@ -137,15 +138,31 @@ class UserAuthController extends Controller
         return response()->json(['message' => 'Email verified successfully. You can now log in.']);
     }
 
-    // -------------------- LOGIN --------------------
     public function login(Request $request)
     {
-        $request->validate(['email' => 'required|email', 'password' => 'required|string']);
+        $request->validate([
+            'email'    => 'required|email',
+            'password' => 'required|string',
+        ]);
 
         $user = User::where('email', $request->email)->first();
 
-        if (! $user || ! Hash::check($request->password, $user->password)) {
-            return response()->json(['message' => 'Invalid credentials'], 401);
+        // Email does not exist
+        if (! $user) {
+            return response()->json([
+                'errors' => [
+                    'email' => 'Email address not found.',
+                ],
+            ], 422);
+        }
+
+        // Password incorrect
+        if (! Hash::check($request->password, $user->password)) {
+            return response()->json([
+                'errors' => [
+                    'password' => 'Incorrect password.',
+                ],
+            ], 422);
         }
 
         if (! $user->isActive()) {
@@ -188,12 +205,12 @@ class UserAuthController extends Controller
         ]);
 
         try {
-            Mail::send('emails.reset-code', ['user' => $user, 'code' => $code], function ($message) use ($user) {
-                $message->to($user->email)->subject('Password Reset Code');
-            });
+            Mail::to($user->email)->send(new PasswordResetCodeMail($user, $code));
         } catch (\Exception $e) {
-            \Log::error('Mail sending failed: ' . $e->getMessage());
-            return response()->json(['message' => 'Code generated but email sending failed.'], 500);
+            \Log::error('Password reset mail failed', [
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return response()->json(['message' => 'Reset code sent to email.']);
@@ -227,8 +244,10 @@ class UserAuthController extends Controller
                 $message->to($user->email)->subject('Resend: Password Reset Code');
             });
         } catch (\Exception $e) {
-            \Log::error('Resend password reset failed: ' . $e->getMessage());
-            return response()->json(['message' => 'Password reset code resent but email failed.'], 500);
+            \Log::error('Password reset resend mail failed', [
+                'email' => $user->email,
+                'error' => $e->getMessage(),
+            ]);
         }
 
         return response()->json(['message' => 'Password reset code resent to email.']);
