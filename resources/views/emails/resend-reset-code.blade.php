@@ -46,7 +46,7 @@
     }
 
     .code-box {
-        font-size: 32px;
+        font-size: 20px;
         font-weight: bold;
         color: #ff1744;
         background-color: #cde4fe;
@@ -83,7 +83,8 @@
     </div>
 
     <div class="email-body">
-        <p>Hello {{ $user->name ?? 'User' }},</p>
+        <p>Hello {{ $user->firstname ?? '' }} {{ $user->lastname ?? '' }},</p>
+
         <p>You requested a password reset. Use the code below to reset your password:</p>
 
         <div class="code-box">{{ $code }}</div>
