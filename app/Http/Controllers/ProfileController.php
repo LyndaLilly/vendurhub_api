@@ -9,85 +9,103 @@ use Illuminate\Support\Facades\Log;
 
 class ProfileController extends Controller
 {
-    public function store(Request $request)
-    {
-        try {
-            $existingProfile = Profile::where('user_id', $request->user()->id)->first();
-            if ($existingProfile) {
-                return response()->json([
-                    'message' => 'Profile already exists. Please update your profile instead.',
-                ], 400);
-            }
+  public function store(Request $request)
+{
+    try {
+        Log::info('Profile store started', ['user_id' => $request->user()->id]);
 
-            // Validate input
-            $request->validate([
-                'business_name'           => 'required|string|max:255',
-                'business_description'    => 'required|string',
-                'date_of_establishment'   => 'required|date',
-                'country'                 => 'required|string|max:255',
-                'state'                   => 'required|string|max:255',
-                'city'                    => 'required|string|max:255',
-                'business_location'       => 'required|string|max:255',
-                'contact_number_whatsapp' => 'required|string|max:20',
-                'business_account_number' => 'nullable|string|max:50',
-                'business_account_name'   => 'nullable|string|max:255',
-                'business_bank_name'      => 'nullable|string|max:255',
-                'business_logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-                'signature'               => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-                'profile_image'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
-            ]);
-
-            $data = $request->except(['business_logo', 'signature', 'profile_image']);
-
-            // Generate WhatsApp link automatically
-            $phone                 = preg_replace('/\D/', '', $request->input('contact_number_whatsapp'));
-            $data['whatsapp_link'] = 'https://wa.me/' . $phone;
-            $data['user_id']       = $request->user()->id;
-
-            // Handle file uploads
-            $uploads = ['business_logo' => 'logos', 'signature' => 'signatures', 'profile_image' => 'profile_images'];
-            foreach ($uploads as $field => $folder) {
-                if ($request->hasFile($field)) {
-                    $file      = $request->file($field);
-                    $uploadDir = public_path("uploads/{$folder}");
-                    if (! file_exists($uploadDir)) {
-                        mkdir($uploadDir, 0777, true);
-                    }
-
-                    $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
-                    $file->move($uploadDir, $filename);
-                    $data[$field] = "{$folder}/{$filename}";
-                }
-            }
-
-            $profile = Profile::create($data);
-
-            // Create shareable link
-            ProfileLink::create([
-                'profile_id'     => $profile->id,
-                'shareable_link' => Str::uuid(),
-                'slug'           => Str::slug($profile->business_name) . '-' . substr(md5(rand()), 0, 6),
-            ]);
-
-            $request->user()->update(['profile_updated' => true]);
-
+        $existingProfile = Profile::where('user_id', $request->user()->id)->first();
+        if ($existingProfile) {
+            Log::warning('Profile already exists', ['user_id' => $request->user()->id]);
             return response()->json([
-                'message' => 'Profile created successfully',
-                'profile' => $profile,
-            ]);
-        } catch (\Exception $e) {
-            Log::error('Profile store error: ' . $e->getMessage(), [
-                'stack'        => $e->getTraceAsString(),
-                'user_id'      => $request->user()->id ?? null,
-                'request_data' => $request->all(),
-            ]);
-
-            return response()->json([
-                'message' => 'An error occurred while creating the profile.',
-                'error'   => $e->getMessage(),
-            ], 500);
+                'message' => 'Profile already exists. Please update your profile instead.',
+            ], 400);
         }
+
+        Log::info('Validating profile data', ['request_data' => $request->all()]);
+
+        // Validate input
+        $request->validate([
+            'business_name'           => 'required|string|max:255',
+            'business_description'    => 'required|string',
+            'date_of_establishment'   => 'required|date',
+            'country'                 => 'required|string|max:255',
+            'state'                   => 'required|string|max:255',
+            'city'                    => 'required|string|max:255',
+            'business_location'       => 'required|string|max:255',
+            'contact_number_whatsapp' => 'required|string|max:20',
+            'business_account_number' => 'nullable|string|max:50',
+            'business_account_name'   => 'nullable|string|max:255',
+            'business_bank_name'      => 'nullable|string|max:255',
+            'business_logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'signature'               => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+            'profile_image'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
+        ]);
+
+        Log::info('Validation passed', ['user_id' => $request->user()->id]);
+
+        $data = $request->except(['business_logo', 'signature', 'profile_image']);
+
+        // Generate WhatsApp link automatically
+        $phone = preg_replace('/\D/', '', $request->input('contact_number_whatsapp'));
+        $data['whatsapp_link'] = 'https://wa.me/' . $phone;
+        $data['user_id'] = $request->user()->id;
+
+        Log::info('Prepared data for profile', ['data' => $data]);
+
+        // Handle file uploads
+        $uploads = ['business_logo' => 'logos', 'signature' => 'signatures', 'profile_image' => 'profile_images'];
+        foreach ($uploads as $field => $folder) {
+            if ($request->hasFile($field)) {
+                Log::info("Uploading file for {$field}", ['user_id' => $request->user()->id]);
+                $file = $request->file($field);
+                $uploadDir = public_path("uploads/{$folder}");
+                if (! file_exists($uploadDir)) {
+                    mkdir($uploadDir, 0777, true);
+                    Log::info("Created upload directory: {$uploadDir}");
+                }
+
+                $filename = time() . '_' . uniqid() . '.' . $file->getClientOriginalExtension();
+                $file->move($uploadDir, $filename);
+                $data[$field] = "{$folder}/{$filename}";
+
+                Log::info("File uploaded successfully", ['field' => $field, 'path' => $data[$field]]);
+            }
+        }
+
+        Log::info('Creating profile in database', ['user_id' => $request->user()->id]);
+        $profile = Profile::create($data);
+        Log::info('Profile created successfully', ['profile_id' => $profile->id]);
+
+        // Create shareable link
+        ProfileLink::create([
+            'profile_id'     => $profile->id,
+            'shareable_link' => Str::uuid(),
+            'slug'           => Str::slug($profile->business_name) . '-' . substr(md5(rand()), 0, 6),
+        ]);
+
+        $request->user()->update(['profile_updated' => true]);
+
+        Log::info('Profile store completed', ['user_id' => $request->user()->id]);
+
+        return response()->json([
+            'message' => 'Profile created successfully',
+            'profile' => $profile,
+        ]);
+    } catch (\Exception $e) {
+        Log::error('Profile store error: ' . $e->getMessage(), [
+            'stack'        => $e->getTraceAsString(),
+            'user_id'      => $request->user()->id ?? null,
+            'request_data' => $request->all(),
+        ]);
+
+        return response()->json([
+            'message' => 'An error occurred while creating the profile.',
+            'error'   => $e->getMessage(),
+        ], 500);
     }
+}
+
 
     public function update(Request $request)
     {
@@ -112,9 +130,9 @@ class ProfileController extends Controller
                 'city'                    => 'sometimes|required|string|max:255',
                 'business_location'       => 'sometimes|required|string|max:255',
                 'contact_number_whatsapp' => 'sometimes|required|string|max:20',
-                'business_account_number' => 'sometimes|nullable|string|max:50',
-                'business_account_name'   => 'sometimes|nullable|string|max:255',
-                'business_bank_name'      => 'sometimes|nullable|string|max:255',
+                'business_account_number' => 'nullable|string|max:50',
+                'business_account_name'   => 'nullable|string|max:255',
+                'business_bank_name'      => 'nullable|string|max:255',
                 'business_logo'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                 'signature'               => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
                 'profile_image'           => 'nullable|image|mimes:jpeg,png,jpg,gif|max:2048',
