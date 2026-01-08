@@ -60,7 +60,7 @@
         <p>Hello {{ $user->firstname ?? '' }} {{ $user->lastname ?? '' }},</p>
 
         <p>
-            Thank you for registering with <strong>VendureHub</strong>.<br>
+            Thank you for registering with <strong>VendurHub</strong>.<br>
             Use the verification code below to complete your account setup:
         </p>
 

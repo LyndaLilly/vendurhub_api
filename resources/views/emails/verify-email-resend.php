@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Email Resend Verification</title>
+    <title>Email Verification</title>
     <style>
         body {
             font-family: Arial, Helvetica, sans-serif;
             background: #f7f7f7;
             padding: 0;
-            margin: 0;  
+            margin: 0;
         }
         .container {
             max-width: 550px;
@@ -60,7 +60,7 @@
         <p>Hello {{ $user->firstname ?? '' }} {{ $user->lastname ?? '' }},</p>
 
         <p>
-            Thank you for registering with <strong>VendureHub</strong>.<br>
+            Thank you for registering with <strong>VendurHub</strong>.<br>
             Use the verification code below to complete your account setup:
         </p>
 
