@@ -2,13 +2,13 @@
 <html lang="en">
 <head>
     <meta charset="UTF-8" />
-    <title>Email Verification</title>
+    <title>Email Resend Verification</title>
     <style>
         body {
             font-family: Arial, Helvetica, sans-serif;
             background: #f7f7f7;
             padding: 0;
-            margin: 0;
+            margin: 0;  
         }
         .container {
             max-width: 550px;

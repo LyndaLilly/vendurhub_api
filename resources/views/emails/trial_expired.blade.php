@@ -5,7 +5,7 @@
     <title>Trial Expired</title>
 </head>
 <body>
-    <p>Hi {{ $name }},</p>
+     <p>Hello {{ $user->firstname ?? '' }} {{ $user->lastname ?? '' }},</p>
 
     <p>We hope you enjoyed your free trial of Vendurhub! Your trial period has now ended, and your access to premium features has been limited.</p>
 

@@ -5,6 +5,8 @@ use App\Http\Controllers\Controller;
 use App\Mail\PasswordChangedNotification;
 use App\Mail\PasswordResetCodeMail;
 use App\Mail\ResendPasswordResetCodeMail;
+use App\Mail\VerifyEmailCode;
+use App\Mail\VerifyEmailCodeResend;
 use App\Models\User;
 use App\Models\Verification;
 use Carbon\Carbon;
@@ -50,16 +52,10 @@ class UserAuthController extends Controller
         ]);
 
         try {
-            Mail::send('emails.verify-code', ['user' => $user, 'code' => $code], function ($message) use ($user) {
-                $message->to($user->email)->subject('Verify your email');
-            });
+            Mail::to($user->email)->send(new VerifyEmailCode($user, $code));
         } catch (\Exception $e) {
             \Log::error('Mail sending failed: ' . $e->getMessage());
-            return response()->json([
-                'message'      => 'Registration succeeded but email failed to send.',
-                'user'         => $user,
-                'email_failed' => true,
-            ], 201);
+
         }
 
         return response()->json([
@@ -101,12 +97,10 @@ class UserAuthController extends Controller
         }
 
         try {
-            Mail::send('emails.verify-code', ['user' => $user, 'code' => $code], function ($message) use ($user) {
-                $message->to($user->email)->subject('Resend: Verify your email');
-            });
+            Mail::to($user->email)->send(new VerifyEmailCodeResend($user, $code));
+
         } catch (\Exception $e) {
             \Log::error('Resend email verification failed: ' . $e->getMessage());
-            return response()->json(['message' => 'Email failed to resend.'], 500);
         }
 
         return response()->json(['message' => 'Verification code resent to email.']);
