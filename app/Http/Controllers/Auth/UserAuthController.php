@@ -241,11 +241,20 @@ class UserAuthController extends Controller
         }
 
         try {
-             Mail::to($user->email)->send(new ResendPasswordResetCodeMail($user, $code));
-        } catch (\Exception $e) {
-            \Log::error('Password reset resend mail failed', [
+            Mail::to($user->email)->send(new ResendPasswordResetCodeMail($user, $code));
+
+            // Log successful email send
+            \Log::info('Password reset email resent successfully.', [
                 'email' => $user->email,
-                'error' => $e->getMessage(),
+                'code'  => $code,
+            ]);
+        } catch (\Exception $e) {
+            // Log detailed error for debugging
+            \Log::error('Password reset resend mail failed', [
+                'email'     => $user->email,
+                'code'      => $code,
+                'exception' => $e->getMessage(),
+                'trace'     => $e->getTraceAsString(),
             ]);
         }
 
