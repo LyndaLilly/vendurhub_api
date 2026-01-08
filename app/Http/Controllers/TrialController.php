@@ -2,9 +2,11 @@
 namespace App\Http\Controllers;
 
 use App\Models\Trial;
+use App\Mail\TrialExpiredMail;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Http;
 use Illuminate\Support\Facades\Log;
+use Illuminate\Support\Facades\Mail;
 
 class TrialController extends Controller
 {
@@ -73,17 +75,26 @@ class TrialController extends Controller
         ]);
     }
 
-    protected function checkExpiredTrials()
-    {
-        $expired = Trial::where('active', true)
-            ->where('ended_at', '<', now())
-            ->update([
-                'active'     => false,
-                'expired_at' => now(),
-            ]);
 
-        return response()->json([
-            'message' => "{$expired} trials expired successfully.",
-        ]);
+
+protected function checkExpiredTrials()
+{
+    $expiredTrials = Trial::where('active', true)
+        ->where('ended_at', '<', now())
+        ->get();
+
+    foreach ($expiredTrials as $trial) {
+        $trial->active     = 0;
+        $trial->expired_at = now();
+        $trial->save();
+
+        // Send email
+        Mail::to($trial->user->email)->send(new TrialExpiredMail($trial->user));
     }
+
+    return response()->json([
+        'message' => count($expiredTrials) . " trials expired and notifications sent.",
+    ]);
+}
+
 }
