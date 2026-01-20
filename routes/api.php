@@ -16,6 +16,7 @@ use App\Http\Controllers\TrialController;
 use App\Http\Controllers\UserController;
 use App\Mail\SubscriptionExpiryReminderMail;
 use App\Models\User;
+use App\Http\Controllers\BlogController;
 use Illuminate\Http\Request;
 use Illuminate\Support\Facades\Mail;
 
@@ -162,3 +163,10 @@ Route::get('/test-mail', function () {
         return 'Mail failed: ' . $e->getMessage();
     }
 });
+
+Route::post('/createposts', [BlogController::class, 'storePost']);
+Route::get('/posts', [BlogController::class, 'index']);
+Route::get('/posts/{id}', [BlogController::class, 'show']);
+Route::post('/comments', [BlogController::class, 'comment']);
+Route::post('/likes', [BlogController::class, 'like']);
+Route::post('/shares', [BlogController::class, 'share']);
